@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Matrix::For Han</title>
+    <style>
+        /* 页面淡入 */
+        @keyframes pageFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        body { 
+            margin: 0; 
+            background: #000; 
+            overflow: hidden; 
+            font-family: 'Courier New', Courier, monospace;
+            -webkit-user-select: none;
+            user-select: none;
+            animation: pageFadeIn 2s ease-in forwards; 
+        }
+        
+        #canvas { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            z-index: 1; 
+            touch-action: none; 
+        }
+        
+        /* 中央祝福文字：动态字号适配，全大写硬核 NB 版 */
+        .wishes { 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            color: #fff; 
+            text-align: center;
+            font-size: 5.8vw; 
+            font-weight: bold;
+            z-index: 10; 
+            pointer-events: none; 
+            opacity: 0.95;
+            white-space: pre-wrap; 
+            text-shadow: 0 0 10px #0f0, 0 0 20px #0f0, 0 0 30px #fff; 
+            line-height: 1.4;
+        }
+
+        .char-glow {
+            text-shadow: 0 0 10px #0f0, 0 0 20px #0f0, 0 0 30px #fff; 
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="wishes" id="wishes-text"></div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const wishesContainer = document.getElementById('wishes-text');
+        
+        // 1. 语言配置：仅保留简中、英文 (各2x权重) 和 日期 (1x权重)
+        // 彻底移除了日文、繁体中文及所有乱码字符
+        const phrases = [
+            "韩国震，生日快乐！", "韩国震，生日快乐！", 
+            "Happy Birthday, Han Guozhen!", "Happy Birthday, Han Guozhen!",
+            "2026.03.19" 
+        ];
+
+        // 2. 构造纯净字符池
+        let fullPoolString = phrases.join("");
+        const finalCharset = [...new Set(fullPoolString)].join("");
+
+        // 3. 中央打印机文本：全大写 NB 版
+        const wishesString = "HAPPY BIRTHDAY,\nHAN, WISH YOU NB FOREVER!";
+        let wishesIndex = 0;
+
+        let width, height, columns, drops = [];
+        // 4. 识别度强化：20px 字号
+        let fontSize = 20; 
+        let animationInterval;
+
+        function init() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            columns = Math.floor(width / fontSize);
+            drops = [];
+            
+            for (let i = 0; i < columns; i++) {
+                drops[i] = resetDrop(true);
+            }
+            
+            wishesContainer.innerHTML = '';
+            wishesIndex = 0;
+            
+            // 手机端适配
+            if (width < 450) {
+                wishesContainer.style.fontSize = "5.5vw";
+            }
+            
+            typeWriter();
+        }
+
+        function resetDrop(isInitial = false) {
+            // 35% 概率触发流动显示完整句子
+            const isPhraseMode = Math.random() < 0.35; 
+            const chosenPhrase = isPhraseMode ? phrases[Math.floor(Math.random() * phrases.length)] : "";
+            
+            return {
+                y: isInitial ? (Math.random() * height / (fontSize * 2.0)) : 0,
+                // 流速：慢速 80%
+                speed: (Math.random() * 0.3 + 0.2), 
+                phraseMode: isPhraseMode,
+                phrase: chosenPhrase,
+                charIndex: 0
+            };
+        }
+
+        function draw() {
+            // 0.15 透明度缩短拖尾，确保每个字清晰可见
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fillRect(0, 0, width, height);
+            
+            ctx.fillStyle = '#0f0'; 
+            ctx.font = `${fontSize}px "Microsoft YaHei", "Arial", sans-serif`;
+            
+            for (let i = 0; i < drops.length; i++) {
+                let d = drops[i];
+                let textChar = "";
+
+                if (d.phraseMode && d.charIndex < d.phrase.length) {
+                    textChar = d.phrase[d.charIndex];
+                    d.charIndex++;
+                } else {
+                    d.phraseMode = false;
+                    textChar = finalCharset[Math.floor(Math.random() * finalCharset.length)];
+                }
+
+                // 2.0x 垂直间距防止叠字
+                ctx.fillText(textChar, i * fontSize, d.y * fontSize * 2.0); 
+
+                if (d.y * fontSize * 2.0 > height && Math.random() > 0.98) {
+                    drops[i] = resetDrop();
+                }
+                d.y += d.speed;
+            }
+        }
+
+        // 逐字打印
+        function typeWriter() {
+            if (wishesIndex < wishesString.length) {
+                const char = wishesString.charAt(wishesIndex);
+                if (char === '\n') {
+                    wishesContainer.appendChild(document.createElement('br'));
+                } else {
+                    const span = document.createElement('span');
+                    span.className = 'char-glow';
+                    span.textContent = char;
+                    wishesContainer.appendChild(span);
+                }
+                wishesIndex++;
+                setTimeout(typeWriter, 110); 
+            }
+        }
+
+        // 互动重置
+        function regenerate() {
+            init();
+        }
+
+        window.addEventListener('resize', init);
+        window.addEventListener('touchstart', (e) => {
+            e.preventDefault(); 
+            regenerate();
+        });
+        window.addEventListener('mousedown', regenerate);
+
+        init();
+        if (animationInterval) clearInterval(animationInterval);
+        // 帧率 45ms
+        animationInterval = setInterval(draw, 45); 
+    </script>
+</body>
+</html>
